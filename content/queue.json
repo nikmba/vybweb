@@ -1,0 +1,14 @@
+[
+  {
+    "slug": "f1-welcome",
+    "title": "Welcome to Farm 1",
+    "content_md": "# Farm 1 is live\nThis is our first automated post.",
+    "farm_id": "F1"
+  },
+  {
+    "slug": "f1-update-1",
+    "title": "Farm 1 Update #1",
+    "content_md": "Short update — automation is working.",
+    "farm_id": "F1"
+  }
+]
