@@ -1,72 +1,78 @@
-import { getDb } from "@/lib/mongo";
-import { mdToHtml } from "@/lib/md";
 import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { getDb } from "@/lib/mongo";
 
+// Shape we read from Mongo
 type Doc = {
   slug: string;
   title?: string;
-  status?: string;
+  description?: string;       // optional short summary
   content_html?: string;
-  body?: string;
-  content?: string;
-  content_md?: string;
-  description?: string;
+  status?: string;
+  published_at?: number | Date;
 };
 
-function ctaHtml(slug: string) {
-  return `
-  <hr />
-  <section style="margin-top:24px">
-    <p>👉 Explore more on <a href="https://VYBWeb.com" target="_blank" rel="nofollow">VYBWeb.com</a></p>
-    <p>🚀 Build & ship apps on <a href="https://AppVYB.com" target="_blank" rel="nofollow">AppVYB.com</a></p>
-    <p>💡 Start vibecoding → <a href="/try" rel="nofollow">Try free now</a></p>
-  </section>`;
-}
-
-// Next 15+ wants params awaited for dynamic routes
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
-  const { slug } = await params;
+// --------- SEO per-article ----------
+export async function generateMetadata(
+  { params }: { params: Promise<{ slug: string }> }
+): Promise<Metadata> {
+  const { slug } = await params;               // ✅ avoids the Next “await params” warning
   const { articles } = await getDb();
-
   const doc = (await articles.findOne({ slug })) as Doc | null;
-  if (!doc || doc.status !== "published") return { title: "Not found" };
+
+  if (!doc || doc.status !== "published") {
+    return { title: "Not found" };
+  }
+
+  const title = doc.title || slug.replace(/[-_]+/g, " ");
+  const description =
+    doc.description ||
+    "Read the latest from Best No-Code App—guides, updates and experiments.";
 
   return {
-    title: doc.title || doc.slug,
-    description: doc.description || undefined,
-    alternates: { canonical: `/articles/${doc.slug}` },
+    title,
+    description,
+    alternates: {
+      // metadataBase is set in layout.tsx, so relative canonical works
+      canonical: `/articles/${slug}`,
+    },
+    openGraph: {
+      type: "article",
+      title,
+      description,
+      url: `/articles/${slug}`,
+      siteName: "Best No-Code App",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+    robots: { index: true, follow: true },
   };
 }
 
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
+// --------- Page UI ----------
+export default async function ArticlePage(
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await params;               // ✅ same fix here
   const { articles } = await getDb();
 
   const doc = (await articles.findOne({ slug })) as Doc | null;
   if (!doc || doc.status !== "published") {
-    return (
-      <main className="prose mx-auto p-6">
-        <h1>Not found</h1>
-      </main>
-    );
+    notFound();
   }
-
-  const html =
-    doc.content_html || doc.body || doc.content || mdToHtml(doc.content_md || "");
 
   return (
     <main className="prose mx-auto p-6">
-      <h1>{doc.title || doc.slug}</h1>
-      {/* eslint-disable-next-line react/no-danger */}
-      <article dangerouslySetInnerHTML={{ __html: html + ctaHtml(doc.slug) }} />
+      <p>
+        <Link href="/articles">← Back to Articles</Link>
+      </p>
+      <h1>{doc.title || slug}</h1>
+      {/* If you also store content_md, you could render that too, but we’re using HTML here */}
+      <article dangerouslySetInnerHTML={{ __html: doc.content_html || "" }} />
     </main>
   );
 }
